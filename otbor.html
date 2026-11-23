@@ -1,0 +1,2570 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Естественный отбор — Симулятор (8-метров-UI)</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: #0f172a;
+      --panel-2: #16213a;
+      --border: #263554;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --pink: #f43f5e;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      width: 100%;
+      height: 100%;
+      gap: clamp(8px, 1vh, 14px);
+      padding: clamp(8px, 1vw, 16px);
+    }
+
+    .app.compact-controls .controls-deck {
+      display: none;
+    }
+
+    /* TOP BAR */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--panel);
+      border: 2px solid var(--border);
+      border-radius: 18px;
+      padding: clamp(6px, 0.7vw, 12px) clamp(10px, 1vw, 16px);
+      flex-wrap: wrap;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      border: 2px solid var(--border);
+      background: var(--panel-2);
+      color: var(--muted);
+      font-weight: 800;
+      font-size: clamp(14px, 1.25vw, 22px);
+      padding: clamp(8px, 0.7vh, 12px) clamp(12px, 1.2vw, 20px);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      border-color: #475569;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border-color: #7dd3fc;
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+    }
+
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 2px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      font-weight: 800;
+      font-size: clamp(14px, 1.15vw, 20px);
+      padding: clamp(8px, 0.65vh, 11px) clamp(10px, 1vw, 16px);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn:hover {
+      border-color: #64748b;
+    }
+
+    .btn.play-active {
+      background: #15803d;
+      border-color: #4ade80;
+    }
+
+    .btn.paused-state {
+      background: #b45309;
+      border-color: #fbbf24;
+      animation: pulseWarn 1.8s infinite;
+    }
+
+    @keyframes pulseWarn {
+      0%, 100% { box-shadow: 0 0 0 rgba(251, 191, 36, 0); }
+      50% { box-shadow: 0 0 18px rgba(251, 191, 36, 0.45); }
+    }
+
+    .speed-group {
+      display: flex;
+      background: #090e1a;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .speed-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: clamp(13px, 1.1vw, 19px);
+      padding: 6px 11px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    .speed-btn.active {
+      background: var(--accent);
+      color: #06121f;
+    }
+
+    /* MAIN STAGE */
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1.85fr) minmax(310px, 1fr);
+      gap: clamp(10px, 1vw, 16px);
+      min-height: 0;
+    }
+
+    .arena-wrap {
+      position: relative;
+      background: var(--panel);
+      border: 3px solid var(--border);
+      border-radius: 22px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    #arenaCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .arena-badges {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .env-pill {
+      background: rgba(7, 11, 20, 0.84);
+      backdrop-filter: blur(6px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: clamp(15px, 1.45vw, 26px);
+      padding: 8px 16px;
+      border-radius: 14px;
+      letter-spacing: 0.02em;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .pause-banner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(7, 11, 20, 0.88);
+      border: 4px solid #fbbf24;
+      color: #fbbf24;
+      font-weight: 900;
+      font-size: clamp(28px, 3.5vw, 60px);
+      padding: 16px 40px;
+      border-radius: 22px;
+      letter-spacing: 0.08em;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.65);
+    }
+
+    .pause-banner.visible {
+      display: block;
+    }
+
+    .extinct-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 11, 20, 0.86);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px;
+      gap: 18px;
+      z-index: 5;
+    }
+
+    .extinct-overlay.visible {
+      display: flex;
+    }
+
+    .extinct-title {
+      font-size: clamp(28px, 3.4vw, 58px);
+      font-weight: 900;
+      color: #fbbf24;
+    }
+
+    .extinct-desc {
+      font-size: clamp(18px, 1.7vw, 30px);
+      color: #e2e8f0;
+      max-width: 720px;
+      line-height: 1.35;
+      font-weight: 600;
+    }
+
+    /* RIGHT HUD DASHBOARD */
+    .hud {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: clamp(8px, 0.9vh, 14px);
+      min-height: 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(10px, 1vw, 18px);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .kpi-box {
+      background: #0a1020;
+      border: 2px solid #1e293b;
+      border-radius: 14px;
+      padding: clamp(8px, 0.8vh, 14px) 14px;
+    }
+
+    .kpi-label {
+      font-size: clamp(13px, 1.05vw, 18px);
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .kpi-value {
+      font-size: clamp(32px, 3.2vw, 58px);
+      font-weight: 900;
+      line-height: 1.08;
+      font-variant-numeric: tabular-nums;
+      margin-top: 2px;
+    }
+
+    .kpi-sub {
+      font-size: clamp(13px, 1vw, 17px);
+      color: var(--muted);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* BARS / TRAIT METERS */
+    .breakdown {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(8px, 0.9vh, 13px);
+    }
+
+    .bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .bar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 800;
+      font-size: clamp(15px, 1.35vw, 24px);
+    }
+
+    .bar-pct {
+      font-size: clamp(22px, 2vw, 34px);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar-track {
+      height: clamp(18px, 2vh, 28px);
+      background: #090e1a;
+      border: 2px solid #1e293b;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.2s ease;
+    }
+
+    .allele-row {
+      display: flex;
+      justify-content: space-between;
+      background: #0a1020;
+      border: 2px solid #1e293b;
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: clamp(14px, 1.2vw, 21px);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      margin-top: 2px;
+    }
+
+    .trait-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .trait-box {
+      background: #0a1020;
+      border: 2px solid #1e293b;
+      border-radius: 16px;
+      padding: clamp(10px, 1vh, 16px);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .trait-title {
+      font-size: clamp(14px, 1.15vw, 20px);
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .trait-val {
+      font-size: clamp(30px, 2.8vw, 50px);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.05;
+    }
+
+    .trait-delta {
+      font-size: clamp(14px, 1.15vw, 20px);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* GRAPH CARD */
+    .graph-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      gap: 8px;
+    }
+
+    .graph-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: clamp(14px, 1.2vw, 21px);
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .graph-wrap {
+      flex: 1;
+      min-height: 110px;
+      position: relative;
+      background: #090e1a;
+      border: 2px solid #1e293b;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    #graphCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* BOTTOM CONTROLS DECK */
+    .controls-deck {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      border-radius: 18px;
+      padding: clamp(8px, 0.8vw, 14px) clamp(12px, 1.1vw, 18px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .group-label {
+      font-size: clamp(14px, 1.15vw, 20px);
+      font-weight: 800;
+      color: var(--muted);
+      margin-right: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .opt-btn {
+      border: 2px solid var(--border);
+      background: var(--panel-2);
+      color: #cbd5e1;
+      font-weight: 800;
+      font-size: clamp(14px, 1.2vw, 21px);
+      padding: clamp(8px, 0.7vh, 12px) clamp(12px, 1.1vw, 18px);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .opt-btn:hover {
+      border-color: #64748b;
+      color: #ffffff;
+    }
+
+    .opt-btn.active {
+      background: #0369a1;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.32);
+    }
+
+    .opt-btn.active-warn {
+      background: #b45309;
+      border-color: #fbbf24;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(251, 191, 36, 0.32);
+    }
+
+    .opt-btn.active-danger {
+      background: #b91c1c;
+      border-color: #f87171;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(248, 113, 113, 0.35);
+    }
+
+    .opt-btn.active-good {
+      background: #15803d;
+      border-color: #4ade80;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(74, 222, 128, 0.3);
+    }
+
+    .insight-line {
+      font-size: clamp(15px, 1.25vw, 22px);
+      font-weight: 700;
+      color: #e2e8f0;
+      background: #0a1020;
+      border-left: 5px solid var(--accent);
+      padding: 7px 14px;
+      border-radius: 8px;
+      line-height: 1.25;
+    }
+
+    /* MODAL FOR BIOLOGY NOTES */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 6, 14, 0.85);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--panel);
+      border: 3px solid var(--accent);
+      border-radius: 24px;
+      max-width: 980px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: clamp(20px, 2.5vw, 38px);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .modal-title {
+      font-size: clamp(24px, 2.4vw, 40px);
+      font-weight: 900;
+      color: #7dd3fc;
+      margin: 0;
+    }
+
+    .modal-content h3 {
+      font-size: clamp(18px, 1.6vw, 28px);
+      color: #fde047;
+      margin: 18px 0 8px;
+    }
+
+    .modal-content p, .modal-content li {
+      font-size: clamp(16px, 1.35vw, 24px);
+      line-height: 1.45;
+      color: #e2e8f0;
+      margin: 6px 0;
+    }
+
+    .modal-content ul {
+      padding-left: 24px;
+    }
+
+    @media (max-width: 960px) {
+      .stage {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1.2fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="appRoot">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="tabs">
+        <button class="tab-btn active" data-scenario="A" id="tabA">🦋 1. Камуфляж</button>
+        <button class="tab-btn" data-scenario="B" id="tabB">🦠 2. Антибиотик</button>
+        <button class="tab-btn" data-scenario="C" id="tabC">⚖️ 3. Признаки и среда</button>
+      </div>
+
+      <div class="transport">
+        <button class="btn play-active" id="playPauseBtn" title="Пробел">⏸ Пауза</button>
+        <div class="speed-group" aria-label="Скорость">
+          <button class="speed-btn" data-speed="0.5">0.5×</button>
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="2">2×</button>
+          <button class="speed-btn" data-speed="4">4×</button>
+        </div>
+        <button class="btn" id="resetBtn" title="Клавиша R">🔄 Сброс</button>
+        <button class="btn" id="bioBtn">📖 Био-справка</button>
+        <button class="btn" id="hideUiBtn" title="Клавиша H">👁 Панель</button>
+        <button class="btn" id="fsBtn">⛶ Экран</button>
+      </div>
+    </header>
+
+    <!-- MAIN STAGE -->
+    <main class="stage">
+      <section class="arena-wrap">
+        <canvas id="arenaCanvas"></canvas>
+        <div class="arena-badges">
+          <div class="env-pill" id="arenaStatusPill">🌿 Зелёный луг • Хищники активны</div>
+          <div class="env-pill" id="arenaMutationPill" style="display:none; border-color:#facc15; color:#fde047;"></div>
+        </div>
+        <div class="pause-banner" id="pauseBanner">⏸ ПАУЗА</div>
+        <div class="extinct-overlay" id="extinctOverlay">
+          <div class="extinct-title" id="extinctTitle">ПОПУЛЯЦИЯ ВЫМЕРЛА</div>
+          <div class="extinct-desc" id="extinctDesc"></div>
+          <button class="btn play-active" style="font-size: clamp(18px, 1.8vw, 30px); padding: 14px 28px;" id="extinctResetBtn">🔄 Заселить заново</button>
+        </div>
+      </section>
+
+      <aside class="hud">
+        <!-- KPI -->
+        <div class="card kpi-grid">
+          <div class="kpi-box">
+            <div class="kpi-label">Поколение</div>
+            <div class="kpi-value" id="kpiGen">1.0</div>
+            <div class="kpi-sub" id="kpiGenSub">среднее по линии</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-label">Популяция</div>
+            <div class="kpi-value" id="kpiPop">45</div>
+            <div class="kpi-sub" id="kpiCap">ёмкость среды: 55</div>
+          </div>
+        </div>
+
+        <!-- BREAKDOWN -->
+        <div class="card breakdown" id="hudBreakdown"></div>
+
+        <!-- GRAPH -->
+        <div class="card graph-card">
+          <div class="graph-head">
+            <span id="graphTitle">Динамика по поколениям</span>
+            <span id="graphRange">Пок. 1 → 1</span>
+          </div>
+          <div class="graph-wrap">
+            <canvas id="graphCanvas"></canvas>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- BOTTOM CONTROLS -->
+    <footer class="controls-deck" id="controlsDeck">
+      <div class="controls-row" id="scenarioControls"></div>
+      <div class="insight-line" id="insightLine"></div>
+    </footer>
+  </div>
+
+  <!-- BIO MODAL -->
+  <div class="modal-backdrop" id="bioModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title" id="bioModalTitle">Биологическая модель</h2>
+        <button class="btn" id="closeModalBtn">✖ Закрыть (Esc)</button>
+      </div>
+      <div class="modal-content" id="bioModalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // Logical Arena Coordinates (aspect-independent)
+      const WORLD_W = 1000;
+      const WORLD_H = 660;
+
+      // Utility helpers
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+      const rand = (min, max) => min + Math.random() * (max - min);
+      const randInt = (min, max) => Math.floor(rand(min, max + 1));
+      const randGauss = (mean = 0, std = 1) => {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return mean + std * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      };
+
+      // Global UI state
+      const appState = {
+        activeScenario: 'A',
+        paused: false,
+        speed: 1,
+        uiHidden: false
+      };
+
+      // ==========================================================
+      // SCENARIO A: CAMOUFLAGE (Diploid Genetics: D > G > L)
+      // ==========================================================
+      const ENVS_A = {
+        snow:   { name: 'Светлый снег / Лишайник', icon: '❄️', bg: '#e2e8f0', spot: '#cbd5e1', rgb: [226, 232, 240] },
+        meadow: { name: 'Зелёный луг / Листва',    icon: '🌿', bg: '#166534', spot: '#14532d', rgb: [22, 101, 52] },
+        soot:   { name: 'Тёмная кора / Копоть',    icon: '🌑', bg: '#1c1917', spot: '#292524', rgb: [28, 25, 23] }
+      };
+
+      const PHENOS_A = {
+        L: { label: 'Светлые (LL)',     short: 'Светлые', hex: '#f8fafc', line: '#94a3b8', rgb: [248, 250, 252] },
+        G: { label: 'Зелёные (GG/GL)',  short: 'Зелёные', hex: '#22a559', line: '#14532d', rgb: [34, 165, 89] },
+        D: { label: 'Тёмные (D_)',      short: 'Тёмные',  hex: '#1e2028', line: '#475569', rgb: [30, 32, 40] }
+      };
+
+      function getPhenotypeA(alleles) {
+        if (alleles[0] === 'D' || alleles[1] === 'D') return 'D';
+        if (alleles[0] === 'G' || alleles[1] === 'G') return 'G';
+        return 'L';
+      }
+
+      function colorContrastA(phenoKey, envKey) {
+        const c1 = PHENOS_A[phenoKey].rgb;
+        const c2 = ENVS_A[envKey].rgb;
+        const dr = (c1[0] - c2[0]) / 255;
+        const dg = (c1[1] - c2[1]) / 255;
+        const db = (c1[2] - c2[2]) / 255;
+        // Perceptual luminance-weighted Euclidean distance
+        return Math.sqrt(0.30 * dr * dr + 0.59 * dg * dg + 0.11 * db * db);
+      }
+
+      function createScenarioA() {
+        const s = {
+          K: 54,
+          env: 'meadow',
+          predators: 1, // 0 off, 1 normal, 2 intense
+          mutationRate: 0.02,
+          simTime: 0,
+          organisms: [],
+          predatorUnits: [],
+          effects: [],
+          spots: Array.from({ length: 45 }, () => ({
+            x: rand(30, WORLD_W - 30),
+            y: rand(30, WORLD_H - 30),
+            r: rand(18, 55)
+          })),
+          history: [],
+          events: [],
+          lastSampleGen: 0,
+          extinct: false
+        };
+        initScenarioA(s);
+        return s;
+      }
+
+      function initScenarioA(s) {
+        s.simTime = 0;
+        s.organisms = [];
+        s.effects = [];
+        s.history = [];
+        s.events = [];
+        s.lastSampleGen = 0;
+        s.extinct = false;
+
+        // Initial balanced polymorphic population: 15 LL, 15 GG/GL, 15 DD/DL
+        const starters = [];
+        for (let i = 0; i < 15; i++) starters.push(['L', 'L']);
+        for (let i = 0; i < 15; i++) starters.push(i % 2 === 0 ? ['G', 'G'] : ['G', 'L']);
+        for (let i = 0; i < 15; i++) starters.push(i % 2 === 0 ? ['D', 'D'] : ['D', 'L']);
+
+        starters.forEach(alleles => {
+          s.organisms.push({
+            x: rand(55, WORLD_W - 55),
+            y: rand(65, WORLD_H - 55),
+            vx: rand(-55, 55),
+            vy: rand(-55, 55),
+            angle: rand(0, Math.PI * 2),
+            alleles,
+            pheno: getPhenotypeA(alleles),
+            age: rand(0, 12),
+            maxAge: rand(22, 32),
+            reproCooldown: rand(1, 5),
+            gen: 1,
+            legPhase: rand(0, 6.28),
+            mutantGlow: 0
+          });
+        });
+
+        s.predatorUnits = [
+          { x: 180, y: 150, vx: 110, vy: 80, target: null, huntTimer: 1.2, swoop: 0 },
+          { x: 820, y: 480, vx: -100, vy: -90, target: null, huntTimer: 2.1, swoop: 0 },
+          { x: 500, y: 120, vx: 120, vy: -85, target: null, huntTimer: 1.5, swoop: 0 },
+          { x: 300, y: 550, vx: -95, vy: 110, target: null, huntTimer: 2.6, swoop: 0 }
+        ];
+
+        recordHistoryA(s, true);
+      }
+
+      function computeStatsA(s) {
+        const n = s.organisms.length;
+        let cL = 0, cG = 0, cD = 0;
+        let aL = 0, aG = 0, aD = 0;
+        let genSum = 0;
+        for (const o of s.organisms) {
+          if (o.pheno === 'L') cL++;
+          else if (o.pheno === 'G') cG++;
+          else cD++;
+          for (const a of o.alleles) {
+            if (a === 'L') aL++;
+            else if (a === 'G') aG++;
+            else aD++;
+          }
+          genSum += o.gen;
+        }
+        const avgGen = n > 0 ? genSum / n : (s.history.length ? s.history[s.history.length - 1].gen : 1);
+        const totalAlleles = Math.max(1, n * 2);
+        return {
+          n,
+          avgGen,
+          pctL: n ? (cL / n) * 100 : 0,
+          pctG: n ? (cG / n) * 100 : 0,
+          pctD: n ? (cD / n) * 100 : 0,
+          freqL: (aL / totalAlleles) * 100,
+          freqG: (aG / totalAlleles) * 100,
+          freqD: (aD / totalAlleles) * 100
+        };
+      }
+
+      function recordHistoryA(s, force = false) {
+        const st = computeStatsA(s);
+        if (force || st.avgGen - s.lastSampleGen >= 0.25 || s.history.length === 0) {
+          s.lastSampleGen = st.avgGen;
+          s.history.push({
+            gen: st.avgGen,
+            L: st.pctL,
+            G: st.pctG,
+            D: st.pctD
+          });
+          if (s.history.length > 260) {
+            // Thin older samples cleanly while keeping events & overall shape
+            s.history = s.history.filter((_, idx) => idx === 0 || idx === s.history.length - 1 || idx % 2 === 0);
+          }
+        }
+      }
+
+      function mutateAlleleA(a, rate) {
+        if (Math.random() >= rate) return { allele: a, mutated: false };
+        const pool = ['L', 'G', 'D'].filter(x => x !== a);
+        return { allele: pool[randInt(0, pool.length - 1)], mutated: true };
+      }
+
+      function stepScenarioA(s, dt) {
+        if (s.extinct) return;
+        s.simTime += dt;
+
+        // Move & age beetles
+        const survivors = [];
+        for (const o of s.organisms) {
+          o.age += dt;
+          o.reproCooldown -= dt;
+          if (o.mutantGlow > 0) o.mutantGlow = Math.max(0, o.mutantGlow - dt);
+
+          // Gentle wandering steering
+          o.angle += rand(-1.9, 1.9) * dt;
+          const spd = 62;
+          o.vx = Math.cos(o.angle) * spd;
+          o.vy = Math.sin(o.angle) * spd;
+          o.x += o.vx * dt;
+          o.y += o.vy * dt;
+          o.legPhase += dt * 13;
+
+          if (o.x < 40) { o.x = 40; o.angle = Math.PI - o.angle; }
+          if (o.x > WORLD_W - 40) { o.x = WORLD_W - 40; o.angle = Math.PI - o.angle; }
+          if (o.y < 60) { o.y = 60; o.angle = -o.angle; }
+          if (o.y > WORLD_H - 40) { o.y = WORLD_H - 40; o.angle = -o.angle; }
+
+          if (o.age < o.maxAge) {
+            survivors.push(o);
+          }
+        }
+        s.organisms = survivors;
+
+        // Sexual reproduction (Mendelian diploid)
+        if (s.organisms.length >= 2 && s.organisms.length < s.K) {
+          const babies = [];
+          const capacityFactor = 1 - s.organisms.length / s.K;
+          for (let i = 0; i < s.organisms.length; i++) {
+            const p1 = s.organisms[i];
+            if (p1.age < 2.2 || p1.reproCooldown > 0) continue;
+            if (s.organisms.length + babies.length >= s.K) break;
+            if (Math.random() < 0.75 * capacityFactor * dt) {
+              // Prefer nearby mate, fallback random adult
+              let p2 = null;
+              let bestDist = 180;
+              for (let j = 0; j < s.organisms.length; j++) {
+                if (i === j) continue;
+                const cand = s.organisms[j];
+                if (cand.age < 2.0) continue;
+                const d = Math.hypot(cand.x - p1.x, cand.y - p1.y);
+                if (d < bestDist) {
+                  bestDist = d;
+                  p2 = cand;
+                }
+              }
+              if (!p2) {
+                p2 = s.organisms[randInt(0, s.organisms.length - 1)];
+                if (p2 === p1) continue;
+              }
+
+              p1.reproCooldown = 3.2;
+              const m1 = mutateAlleleA(p1.alleles[randInt(0, 1)], s.mutationRate);
+              const m2 = mutateAlleleA(p2.alleles[randInt(0, 1)], s.mutationRate);
+              const childAlleles = [m1.allele, m2.allele];
+              const childPheno = getPhenotypeA(childAlleles);
+              const phenoChanged = (m1.mutated || m2.mutated) && childPheno !== p1.pheno && childPheno !== p2.pheno;
+
+              const bx = clamp(p1.x + rand(-24, 24), 45, WORLD_W - 45);
+              const by = clamp(p1.y + rand(-24, 24), 65, WORLD_H - 45);
+
+              babies.push({
+                x: bx, y: by,
+                vx: 0, vy: 0,
+                angle: rand(0, Math.PI * 2),
+                alleles: childAlleles,
+                pheno: childPheno,
+                age: 0,
+                maxAge: rand(22, 32),
+                reproCooldown: 3.0,
+                gen: Math.round(((p1.gen + p2.gen) * 0.5 + 1) * 10) / 10,
+                legPhase: rand(0, 6.28),
+                mutantGlow: phenoChanged ? 1.8 : 0
+              });
+
+              if (phenoChanged) {
+                s.effects.push({ type: 'badge', x: bx, y: by - 26, text: '⚡ МУТАЦИЯ!', color: '#fde047', life: 1.5, maxLife: 1.5 });
+              }
+            }
+          }
+          s.organisms.push(...babies);
+        }
+
+        // Predators (active visual selection)
+        const activePredCount = s.predators === 0 ? 0 : (s.predators === 1 ? 2 : 4);
+        for (let i = 0; i < activePredCount; i++) {
+          const pred = s.predatorUnits[i];
+          pred.huntTimer -= dt;
+          if (pred.swoop > 0) pred.swoop = Math.max(0, pred.swoop - dt * 2.5);
+
+          // Density-dependent hunt pause if critically low
+          const minPrey = 4;
+          if (pred.target && !s.organisms.includes(pred.target)) {
+            pred.target = null;
+          }
+
+          if (!pred.target && pred.huntTimer <= 0 && s.organisms.length > minPrey) {
+            // Choose prey weighted by perceptual color contrast^2.6
+            const weights = s.organisms.map(o => {
+              const c = colorContrastA(o.pheno, s.env);
+              return Math.pow(Math.max(0.04, c), 2.6);
+            });
+            const sumW = weights.reduce((a, b) => a + b, 0);
+            let r = Math.random() * sumW;
+            let chosen = s.organisms[0];
+            for (let k = 0; k < s.organisms.length; k++) {
+              r -= weights[k];
+              if (r <= 0) { chosen = s.organisms[k]; break; }
+            }
+            pred.target = chosen;
+            pred.swoop = 1;
+          }
+
+          if (pred.target) {
+            const dx = pred.target.x - pred.x;
+            const dy = pred.target.y - pred.y;
+            const dist = Math.hypot(dx, dy);
+            const chaseSpeed = 420;
+            if (dist < 24) {
+              // Catch prey
+              const idx = s.organisms.indexOf(pred.target);
+              if (idx !== -1) {
+                const caught = s.organisms[idx];
+                s.effects.push({
+                  type: 'catch',
+                  x: caught.x,
+                  y: caught.y,
+                  color: '#ef4444',
+                  life: 0.65,
+                  maxLife: 0.65
+                });
+                s.organisms.splice(idx, 1);
+              }
+              pred.target = null;
+              // Holling-inspired density slowdown when pop is low
+              const scarcityMult = s.organisms.length < 14 ? 2.2 : 1.0;
+              pred.huntTimer = (s.predators === 2 ? rand(0.65, 1.15) : rand(1.3, 2.0)) * scarcityMult;
+            } else {
+              pred.vx = (dx / dist) * chaseSpeed;
+              pred.vy = (dy / dist) * chaseSpeed;
+              pred.x += pred.vx * dt;
+              pred.y += pred.vy * dt;
+            }
+          } else {
+            // Patrol smoothly
+            pred.x += pred.vx * dt;
+            pred.y += pred.vy * dt;
+            if (pred.x < 50 || pred.x > WORLD_W - 50) pred.vx *= -1;
+            if (pred.y < 60 || pred.y > WORLD_H - 50) pred.vy *= -1;
+          }
+        }
+
+        // Update visual effects
+        s.effects = s.effects.filter(e => { e.life -= dt; if (e.type === 'badge') e.y -= 18 * dt; return e.life > 0; });
+
+        if (s.organisms.length === 0) {
+          s.extinct = true;
+        }
+        recordHistoryA(s);
+      }
+
+      function renderScenarioA(s, ctx, w, h) {
+        const sx = w / WORLD_W;
+        const sy = h / WORLD_H;
+        const sc = Math.min(sx, sy);
+        const env = ENVS_A[s.env];
+
+        // Background
+        ctx.fillStyle = env.bg;
+        ctx.fillRect(0, 0, w, h);
+
+        // Organic texture patches
+        ctx.fillStyle = env.spot;
+        for (const sp of s.spots) {
+          ctx.beginPath();
+          ctx.arc(sp.x * sx, sp.y * sy, sp.r * sc, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Organisms (Beetles)
+        for (const o of s.organisms) {
+          const x = o.x * sx;
+          const y = o.y * sy;
+          const r = 19 * sc;
+          const ph = PHENOS_A[o.pheno];
+
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(o.angle);
+
+          if (o.mutantGlow > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 1.65, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(250, 204, 21, ${0.45 * Math.min(1, o.mutantGlow)})`;
+            ctx.fill();
+          }
+
+          // 6 animated legs
+          ctx.strokeStyle = ph.line;
+          ctx.lineWidth = Math.max(2.5, 3 * sc);
+          ctx.lineCap = 'round';
+          for (let side of [-1, 1]) {
+            for (let k = -1; k <= 1; k++) {
+              const swing = Math.sin(o.legPhase + k * 1.7 + (side > 0 ? 0 : Math.PI)) * 0.35;
+              const bx = k * r * 0.48;
+              const by = side * r * 0.65;
+              ctx.beginPath();
+              ctx.moveTo(bx, by);
+              ctx.lineTo(bx + Math.sin(swing) * r * 0.45, by + side * r * 0.52);
+              ctx.stroke();
+            }
+          }
+
+          // Antennae
+          ctx.beginPath();
+          ctx.moveTo(r * 0.85, -r * 0.28);
+          ctx.lineTo(r * 1.32, -r * 0.52);
+          ctx.moveTo(r * 0.85, r * 0.28);
+          ctx.lineTo(r * 1.32, r * 0.52);
+          ctx.stroke();
+
+          // Oval beetle body
+          ctx.beginPath();
+          ctx.ellipse(0, 0, r * 1.08, r * 0.82, 0, 0, Math.PI * 2);
+          ctx.fillStyle = ph.hex;
+          ctx.fill();
+          ctx.lineWidth = Math.max(1.5, 2 * sc);
+          ctx.strokeStyle = ph.line;
+          ctx.stroke();
+
+          // Wing split line & head
+          ctx.beginPath();
+          ctx.moveTo(-r * 1.0, 0);
+          ctx.lineTo(r * 0.55, 0);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(r * 0.72, 0, r * 0.38, -Math.PI * 0.65, Math.PI * 0.65);
+          ctx.fillStyle = ph.line;
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        // Visual Predators (Owls/Hawks)
+        const activePredCount = s.predators === 0 ? 0 : (s.predators === 1 ? 2 : 4);
+        for (let i = 0; i < activePredCount; i++) {
+          const p = s.predatorUnits[i];
+          const px = p.x * sx;
+          const py = p.y * sy;
+          const ang = Math.atan2(p.vy, p.vx);
+          const pr = (p.target ? 34 : 28) * sc;
+
+          if (p.target) {
+            ctx.save();
+            ctx.setLineDash([8 * sc, 8 * sc]);
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.55)';
+            ctx.lineWidth = 3 * sc;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(p.target.x * sx, p.target.y * sy);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(ang);
+          // Shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.beginPath();
+          ctx.moveTo(pr * 0.9, 10 * sc);
+          ctx.quadraticCurveTo(0, -pr * 1.7, -pr * 0.75, -pr * 1.25 + 10 * sc);
+          ctx.lineTo(-pr * 0.3, 10 * sc);
+          ctx.lineTo(-pr * 0.75, pr * 1.25 + 10 * sc);
+          ctx.quadraticCurveTo(0, pr * 1.7, pr * 0.9, 10 * sc);
+          ctx.fill();
+
+          // Bird body
+          ctx.fillStyle = p.target ? '#991b1b' : '#451a03';
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 2.5 * sc;
+          ctx.beginPath();
+          ctx.moveTo(pr * 0.95, 0);
+          ctx.quadraticCurveTo(0, -pr * 1.65, -pr * 0.75, -pr * 1.25);
+          ctx.lineTo(-pr * 0.35, 0);
+          ctx.lineTo(-pr * 0.75, pr * 1.25);
+          ctx.quadraticCurveTo(0, pr * 1.65, pr * 0.95, 0);
+          ctx.fill();
+          ctx.stroke();
+
+          // Glowing predator eyes
+          ctx.fillStyle = '#facc15';
+          ctx.beginPath();
+          ctx.arc(pr * 0.42, -pr * 0.16, 4.2 * sc, 0, Math.PI * 2);
+          ctx.arc(pr * 0.42, pr * 0.16, 4.2 * sc, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        renderEffects(s.effects, ctx, sx, sy, sc);
+      }
+
+      // ==========================================================
+      // SCENARIO B: BACTERIA & ANTIBIOTIC (Resistance + Fitness Cost)
+      // ==========================================================
+      const BACT_TYPES = {
+        0: { label: 'R⁰ Чувствительные', color: '#22d3ee', ring: '#0891b2', divRate: 1.00 },
+        1: { label: 'R¹ Устойчивые',     color: '#fbbf24', ring: '#f59e0b', divRate: 0.82 },
+        2: { label: 'R² Суперустойчивые', color: '#fb7185', ring: '#facc15', divRate: 0.66 }
+      };
+
+      function createScenarioB() {
+        const s = {
+          K: 76,
+          antibiotic: 0, // 0 none, 1 low, 2 high
+          nutrients: 1,  // 1 normal, 1.5 rich
+          mutationRate: 0.015,
+          simTime: 0,
+          bacteria: [],
+          effects: [],
+          history: [],
+          events: [],
+          lastSampleGen: 0,
+          extinct: false
+        };
+        initScenarioB(s);
+        return s;
+      }
+
+      function initScenarioB(s) {
+        s.simTime = 0;
+        s.bacteria = [];
+        s.effects = [];
+        s.history = [];
+        s.events = [];
+        s.lastSampleGen = 0;
+        s.extinct = false;
+
+        // 42 initial bacteria: ~93% sensitive R0, ~7% pre-existing R1 variation
+        for (let i = 0; i < 42; i++) {
+          const level = i < 39 ? 0 : 1;
+          s.bacteria.push({
+            x: rand(70, WORLD_W - 70),
+            y: rand(70, WORLD_H - 70),
+            angle: rand(0, Math.PI * 2),
+            level,
+            progress: rand(0.1, 0.9),
+            age: rand(0, 6),
+            gen: 1,
+            wiggle: rand(0, 6.28),
+            mutantGlow: 0
+          });
+        }
+        recordHistoryB(s, true);
+      }
+
+      function computeStatsB(s) {
+        const n = s.bacteria.length;
+        let c0 = 0, c1 = 0, c2 = 0, genSum = 0;
+        for (const b of s.bacteria) {
+          if (b.level === 0) c0++;
+          else if (b.level === 1) c1++;
+          else c2++;
+          genSum += b.gen;
+        }
+        const avgGen = n > 0 ? genSum / n : (s.history.length ? s.history[s.history.length - 1].gen : 1);
+        return {
+          n,
+          avgGen,
+          pct0: n ? (c0 / n) * 100 : 0,
+          pct1: n ? (c1 / n) * 100 : 0,
+          pct2: n ? (c2 / n) * 100 : 0
+        };
+      }
+
+      function recordHistoryB(s, force = false) {
+        const st = computeStatsB(s);
+        if (force || st.avgGen - s.lastSampleGen >= 0.3 || s.history.length === 0) {
+          s.lastSampleGen = st.avgGen;
+          s.history.push({
+            gen: st.avgGen,
+            R0: st.pct0,
+            R1: st.pct1,
+            R2: st.pct2
+          });
+          if (s.history.length > 260) {
+            s.history = s.history.filter((_, idx) => idx === 0 || idx === s.history.length - 1 || idx % 2 === 0);
+          }
+        }
+      }
+
+      function stepScenarioB(s, dt) {
+        if (s.extinct) return;
+        s.simTime += dt;
+
+        const n = s.bacteria.length;
+        const spaceFactor = Math.max(0.05, 1 - n / s.K);
+        const nextPop = [];
+
+        for (const b of s.bacteria) {
+          b.age += dt;
+          b.wiggle += dt * 9;
+          if (b.mutantGlow > 0) b.mutantGlow = Math.max(0, b.mutantGlow - dt);
+
+          // Drift swimming inside Petri bounds
+          b.angle += rand(-2.2, 2.2) * dt;
+          b.x += Math.cos(b.angle) * 34 * dt;
+          b.y += Math.sin(b.angle) * 34 * dt;
+          if (b.x < 55) { b.x = 55; b.angle = Math.PI - b.angle; }
+          if (b.x > WORLD_W - 55) { b.x = WORLD_W - 55; b.angle = Math.PI - b.angle; }
+          if (b.y < 65) { b.y = 65; b.angle = -b.angle; }
+          if (b.y > WORLD_H - 55) { b.y = WORLD_H - 55; b.angle = -b.angle; }
+
+          // Antibiotic bactericidal lysis hazard per second
+          let abDeathRate = 0;
+          let abGrowthMult = 1.0;
+          if (s.antibiotic === 1) { // Low dose
+            if (b.level === 0) { abDeathRate = 0.65; abGrowthMult = 0.25; }
+            else if (b.level === 1) { abDeathRate = 0.04; abGrowthMult = 0.90; }
+            else { abDeathRate = 0.0; abGrowthMult = 1.0; }
+          } else if (s.antibiotic === 2) { // High dose
+            if (b.level === 0) { abDeathRate = 1.65; abGrowthMult = 0.05; }
+            else if (b.level === 1) { abDeathRate = 0.52; abGrowthMult = 0.35; }
+            else { abDeathRate = 0.02; abGrowthMult = 0.96; }
+          }
+
+          // Natural turnover when near capacity + antibiotic lysis
+          const naturalDeathRate = n > s.K * 0.72 ? 0.14 : 0.03;
+          const totalDeathProb = 1 - Math.exp(-(abDeathRate + naturalDeathRate) * dt);
+          if (Math.random() < totalDeathProb) {
+            if (abDeathRate > 0.2) {
+              s.effects.push({ type: 'lysis', x: b.x, y: b.y, color: BACT_TYPES[b.level].color, life: 0.55, maxLife: 0.55 });
+            }
+            continue;
+          }
+
+          // Binary fission progress (fitness cost built directly into divRate)
+          const growthSpeed = BACT_TYPES[b.level].divRate * s.nutrients * abGrowthMult * (0.25 + 1.15 * spaceFactor) * 0.36;
+          b.progress += growthSpeed * dt;
+
+          if (b.progress >= 1.0 && nextPop.length + 1 < s.K + 4) {
+            b.progress = 0;
+            const dGen = b.gen + 1;
+            // Create 2 daughters (parent updates, 1 daughter added)
+            const mutateLevel = (lvl) => {
+              const r = Math.random();
+              if (r < s.mutationRate && lvl < 2) return { lvl: lvl + 1, mutated: true, up: true };
+              // Rare plasmid loss / back-mutation when no antibiotic
+              if (s.antibiotic === 0 && r > 1 - s.mutationRate * 0.45 && lvl > 0) {
+                return { lvl: lvl - 1, mutated: true, up: false };
+              }
+              return { lvl, mutated: false, up: false };
+            };
+
+            const m1 = mutateLevel(b.level);
+            const m2 = mutateLevel(b.level);
+
+            const offsetAngle = b.angle + Math.PI / 2;
+            const sep = 14;
+            b.level = m1.lvl;
+            b.gen = dGen;
+            if (m1.mutated && m1.up) {
+              b.mutantGlow = 1.8;
+              s.effects.push({ type: 'badge', x: b.x, y: b.y - 24, text: `⚡ МУТАЦИЯ R${m1.lvl}!`, color: '#fde047', life: 1.5, maxLife: 1.5 });
+            }
+
+            const cx = clamp(b.x + Math.cos(offsetAngle) * sep, 55, WORLD_W - 55);
+            const cy = clamp(b.y + Math.sin(offsetAngle) * sep, 65, WORLD_H - 55);
+            b.x = clamp(b.x - Math.cos(offsetAngle) * sep * 0.5, 55, WORLD_W - 55);
+            b.y = clamp(b.y - Math.sin(offsetAngle) * sep * 0.5, 65, WORLD_H - 55);
+
+            nextPop.push({
+              x: cx,
+              y: cy,
+              angle: b.angle + rand(-0.6, 0.6),
+              level: m2.lvl,
+              progress: 0,
+              age: 0,
+              gen: dGen,
+              wiggle: rand(0, 6.28),
+              mutantGlow: (m2.mutated && m2.up) ? 1.8 : 0
+            });
+            if (m2.mutated && m2.up) {
+              s.effects.push({ type: 'badge', x: cx, y: cy - 24, text: `⚡ МУТАЦИЯ R${m2.lvl}!`, color: '#fde047', life: 1.5, maxLife: 1.5 });
+            }
+          }
+
+          nextPop.push(b);
+        }
+
+        s.bacteria = nextPop;
+        s.effects = s.effects.filter(e => { e.life -= dt; if (e.type === 'badge') e.y -= 18 * dt; return e.life > 0; });
+
+        if (s.bacteria.length === 0) {
+          s.extinct = true;
+        }
+        recordHistoryB(s);
+      }
+
+      function renderScenarioB(s, ctx, w, h) {
+        const sx = w / WORLD_W;
+        const sy = h / WORLD_H;
+        const sc = Math.min(sx, sy);
+
+        // Dark lab table background
+        ctx.fillStyle = '#060a14';
+        ctx.fillRect(0, 0, w, h);
+
+        // Large Petri agar field filling arena nicely
+        const pad = 22 * sc;
+        const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, 40 * sc, w * 0.5, h * 0.5, Math.max(w, h) * 0.55);
+        if (s.antibiotic === 0) {
+          grad.addColorStop(0, '#0f1e36');
+          grad.addColorStop(1, '#081020');
+        } else if (s.antibiotic === 1) {
+          grad.addColorStop(0, '#2a2210');
+          grad.addColorStop(1, '#120e08');
+        } else {
+          grad.addColorStop(0, '#361219');
+          grad.addColorStop(1, '#16080d');
+        }
+
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = s.antibiotic === 2 ? '#ef4444' : (s.antibiotic === 1 ? '#f59e0b' : '#38bdf8');
+        ctx.lineWidth = 4 * sc;
+        roundRect(ctx, pad, pad, w - pad * 2, h - pad * 2, 34 * sc);
+        ctx.fill();
+        ctx.stroke();
+
+        // Subtle Petri agar grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+        ctx.lineWidth = 1.5;
+        const step = 70 * sc;
+        for (let gx = pad + step; gx < w - pad; gx += step) {
+          ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, h - pad); ctx.stroke();
+        }
+        for (let gy = pad + step; gy < h - pad; gy += step) {
+          ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(w - pad, gy); ctx.stroke();
+        }
+
+        // Bacteria
+        for (const b of s.bacteria) {
+          const x = b.x * sx;
+          const y = b.y * sy;
+          const len = (22 + b.progress * 10) * sc;
+          const rad = 11 * sc;
+          const meta = BACT_TYPES[b.level];
+
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(b.angle);
+
+          if (b.mutantGlow > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, len * 1.4, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(250, 204, 21, ${0.45 * Math.min(1, b.mutantGlow)})`;
+            ctx.fill();
+          }
+
+          // Animated flagellum tail
+          ctx.strokeStyle = meta.color;
+          ctx.lineWidth = Math.max(2, 2.5 * sc);
+          ctx.beginPath();
+          ctx.moveTo(-len * 0.55, 0);
+          for (let t = 1; t <= 4; t++) {
+            const tx = -len * 0.55 - t * 4.5 * sc;
+            const ty = Math.sin(b.wiggle + t * 1.3) * 4.5 * sc;
+            ctx.lineTo(tx, ty);
+          }
+          ctx.stroke();
+
+          // Outer resistance shield for R1 and R2
+          if (b.level >= 1) {
+            ctx.strokeStyle = b.level === 2 ? '#facc15' : '#fde68a';
+            ctx.lineWidth = (b.level === 2 ? 5.5 : 3.2) * sc;
+            capsulePath(ctx, -len * 0.5, 0, len, rad * 2.25);
+            ctx.stroke();
+          }
+
+          // Capsule cell body
+          capsulePath(ctx, -len * 0.5, 0, len, rad * 1.85);
+          ctx.fillStyle = meta.color;
+          ctx.fill();
+
+          // Pinch mark when about to divide
+          if (b.progress > 0.65) {
+            ctx.strokeStyle = 'rgba(7, 11, 20, 0.55)';
+            ctx.lineWidth = 3 * sc;
+            ctx.beginPath();
+            ctx.moveTo(0, -rad * 0.9);
+            ctx.lineTo(0, rad * 0.9);
+            ctx.stroke();
+          }
+
+          // Inner nucleoid contrast core
+          ctx.fillStyle = 'rgba(7, 11, 20, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, len * 0.25, rad * 0.4, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        renderEffects(s.effects, ctx, sx, sy, sc);
+      }
+
+      // ==========================================================
+      // SCENARIO C: TRAITS & ECOLOGY (Size, Speed, Food, Frost, Predators)
+      // ==========================================================
+      function speedToColor(spd) {
+        // 0.55 (slow blue #60a5fa) -> 1.15 (teal #2dd4bf) -> 2.0 (bright orange-gold #fb923c / #facc15)
+        const t = clamp((spd - 0.55) / 1.45, 0, 1);
+        let r, g, b;
+        if (t < 0.5) {
+          const k = t * 2;
+          r = Math.round(96 + (45 - 96) * k);
+          g = Math.round(165 + (212 - 165) * k);
+          b = Math.round(250 + (191 - 250) * k);
+        } else {
+          const k = (t - 0.5) * 2;
+          r = Math.round(45 + (251 - 45) * k);
+          g = Math.round(212 + (146 - 212) * k);
+          b = Math.round(191 + (60 - 191) * k);
+        }
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      function createScenarioC() {
+        const s = {
+          K: 44,
+          foodLevel: 'normal', // 'famine' | 'normal' | 'abundant'
+          frost: false,
+          predators: 0,        // 0 | 1 | 2
+          simTime: 0,
+          foodSpawnTimer: 0,
+          creatures: [],
+          foods: [],
+          predatorUnits: [],
+          snowflakes: Array.from({ length: 55 }, () => ({
+            x: rand(0, WORLD_W), y: rand(0, WORLD_H), r: rand(2, 5), vy: rand(35, 85), vx: rand(-15, 15)
+          })),
+          effects: [],
+          history: [],
+          events: [],
+          lastSampleGen: 0,
+          extinct: false
+        };
+        initScenarioC(s);
+        return s;
+      }
+
+      function initScenarioC(s) {
+        s.simTime = 0;
+        s.creatures = [];
+        s.foods = [];
+        s.effects = [];
+        s.history = [];
+        s.events = [];
+        s.lastSampleGen = 0;
+        s.extinct = false;
+
+        for (let i = 0; i < 28; i++) {
+          const size = clamp(randGauss(1.0, 0.2), 0.55, 2.0);
+          const speed = clamp(randGauss(1.0, 0.2), 0.55, 2.0);
+          s.creatures.push({
+            x: rand(60, WORLD_W - 60),
+            y: rand(70, WORLD_H - 60),
+            angle: rand(0, Math.PI * 2),
+            size,
+            speed,
+            energy: 65 + 12 * size,
+            age: rand(0, 9),
+            maxAge: rand(22, 30),
+            gen: 1,
+            legPhase: rand(0, 6.28),
+            mutantGlow: 0
+          });
+        }
+
+        for (let i = 0; i < 26; i++) {
+          s.foods.push({ x: rand(45, WORLD_W - 45), y: rand(60, WORLD_H - 45) });
+        }
+
+        s.predatorUnits = [
+          { x: 140, y: 140, vx: 90, vy: 70, angle: 0, cooldown: 0 },
+          { x: 860, y: 520, vx: -90, vy: -70, angle: Math.PI, cooldown: 0 }
+        ];
+
+        recordHistoryC(s, true);
+      }
+
+      function computeStatsC(s) {
+        const n = s.creatures.length;
+        let sumS = 0, sumV = 0, sumG = 0;
+        for (const c of s.creatures) {
+          sumS += c.size;
+          sumV += c.speed;
+          sumG += c.gen;
+        }
+        const avgGen = n > 0 ? sumG / n : (s.history.length ? s.history[s.history.length - 1].gen : 1);
+        return {
+          n,
+          avgGen,
+          avgSize: n > 0 ? sumS / n : 1.0,
+          avgSpeed: n > 0 ? sumV / n : 1.0
+        };
+      }
+
+      function recordHistoryC(s, force = false) {
+        const st = computeStatsC(s);
+        if (force || st.avgGen - s.lastSampleGen >= 0.25 || s.history.length === 0) {
+          s.lastSampleGen = st.avgGen;
+          s.history.push({
+            gen: st.avgGen,
+            size: st.avgSize,
+            speed: st.avgSpeed
+          });
+          if (s.history.length > 260) {
+            s.history = s.history.filter((_, idx) => idx === 0 || idx === s.history.length - 1 || idx % 2 === 0);
+          }
+        }
+      }
+
+      function stepScenarioC(s, dt) {
+        if (s.extinct) return;
+        s.simTime += dt;
+
+        // Snow animation
+        if (s.frost) {
+          for (const fl of s.snowflakes) {
+            fl.x += fl.vx * dt;
+            fl.y += fl.vy * dt;
+            if (fl.y > WORLD_H) { fl.y = -5; fl.x = rand(0, WORLD_W); }
+            if (fl.x < 0) fl.x = WORLD_W;
+            if (fl.x > WORLD_W) fl.x = 0;
+          }
+        }
+
+        // Food spawning
+        const foodCfg = {
+          famine:   { rate: 3.6,  max: 11 },
+          normal:   { rate: 10.5, max: 32 },
+          abundant: { rate: 18.0, max: 54 }
+        }[s.foodLevel];
+
+        s.foodSpawnTimer += foodCfg.rate * dt;
+        while (s.foodSpawnTimer >= 1) {
+          s.foodSpawnTimer -= 1;
+          if (s.foods.length < foodCfg.max) {
+            s.foods.push({ x: rand(45, WORLD_W - 45), y: rand(65, WORLD_H - 45) });
+          }
+        }
+
+        const activePreds = s.predators === 0 ? [] : s.predatorUnits.slice(0, s.predators);
+        const nextCreatures = [];
+
+        for (const c of s.creatures) {
+          c.age += dt;
+          if (c.mutantGlow > 0) c.mutantGlow = Math.max(0, c.mutantGlow - dt);
+          if (c.age >= c.maxAge) continue;
+
+          // Steering: flee nearest predator if close, else seek nearest food
+          let fleeTarget = null;
+          let minPredDist = 175;
+          for (const p of activePreds) {
+            if (p.cooldown > 0) continue;
+            const d = Math.hypot(p.x - c.x, p.y - c.y);
+            if (d < minPredDist) { minPredDist = d; fleeTarget = p; }
+          }
+
+          if (fleeTarget) {
+            const away = Math.atan2(c.y - fleeTarget.y, c.x - fleeTarget.x);
+            c.angle = away + rand(-0.25, 0.25);
+          } else {
+            let bestFood = null;
+            let bestDist = 250;
+            for (const f of s.foods) {
+              const d = Math.hypot(f.x - c.x, f.y - c.y);
+              if (d < bestDist) { bestDist = d; bestFood = f; }
+            }
+            if (bestFood) {
+              const targetAngle = Math.atan2(bestFood.y - c.y, bestFood.x - c.x);
+              // Smooth turn
+              let diff = targetAngle - c.angle;
+              while (diff > Math.PI) diff -= Math.PI * 2;
+              while (diff < -Math.PI) diff += Math.PI * 2;
+              c.angle += clamp(diff, -5 * dt, 5 * dt);
+            } else {
+              c.angle += rand(-2.0, 2.0) * dt;
+            }
+          }
+
+          const vel = 78 * c.speed;
+          c.x += Math.cos(c.angle) * vel * dt;
+          c.y += Math.sin(c.angle) * vel * dt;
+          c.legPhase += dt * (9 + 6 * c.speed);
+
+          if (c.x < 40) { c.x = 40; c.angle = Math.PI - c.angle; }
+          if (c.x > WORLD_W - 40) { c.x = WORLD_W - 40; c.angle = Math.PI - c.angle; }
+          if (c.y < 60) { c.y = 60; c.angle = -c.angle; }
+          if (c.y > WORLD_H - 40) { c.y = WORLD_H - 40; c.angle = -c.angle; }
+
+          // Eat food pellets on contact
+          const eatR = (10 + 11 * c.size) + 9;
+          for (let fi = s.foods.length - 1; fi >= 0; fi--) {
+            const f = s.foods[fi];
+            if (Math.hypot(f.x - c.x, f.y - c.y) < eatR) {
+              s.foods.splice(fi, 1);
+              c.energy = Math.min(130 + 35 * c.size, c.energy + 31);
+              break;
+            }
+          }
+
+          // Biophysical energy drain
+          const basalCost = 2.05 * Math.pow(c.size, 1.52);
+          const moveCost = 1.45 * Math.pow(c.speed, 1.85) * (0.65 + 0.35 * c.size);
+          const frostCost = s.frost ? (7.2 / Math.pow(c.size, 1.6)) : 0;
+          c.energy -= (basalCost + moveCost + frostCost) * dt;
+
+          if (c.energy <= 0) continue; // Starved / froze
+
+          // Reproduction with heritable continuous traits + slight random mutation
+          const reproThresh = 82 + 22 * c.size;
+          if (c.energy >= reproThresh && s.creatures.length + nextCreatures.length < s.K) {
+            c.energy *= 0.52;
+            const dS = randGauss(0, 0.095);
+            const dV = randGauss(0, 0.095);
+            const childSize = clamp(c.size + dS, 0.55, 2.0);
+            const childSpeed = clamp(c.speed + dV, 0.55, 2.0);
+            const bigShift = Math.abs(dS) > 0.16 || Math.abs(dV) > 0.16;
+
+            nextCreatures.push({
+              x: clamp(c.x + rand(-20, 20), 45, WORLD_W - 45),
+              y: clamp(c.y + rand(-20, 20), 65, WORLD_H - 45),
+              angle: rand(0, Math.PI * 2),
+              size: childSize,
+              speed: childSpeed,
+              energy: c.energy,
+              age: 0,
+              maxAge: rand(22, 30),
+              gen: c.gen + 1,
+              legPhase: rand(0, 6.28),
+              mutantGlow: bigShift ? 1.5 : 0
+            });
+          }
+
+          nextCreatures.push(c);
+        }
+
+        s.creatures = nextCreatures;
+
+        // Active 2D Predators chasing slowest reachable prey
+        const predSpeed = s.predators === 2 ? 156 : 114;
+        for (const p of activePreds) {
+          if (p.cooldown > 0) {
+            p.cooldown -= dt;
+            p.x += Math.cos(p.angle) * predSpeed * 0.55 * dt;
+            p.y += Math.sin(p.angle) * predSpeed * 0.55 * dt;
+            if (p.x < 45 || p.x > WORLD_W - 45) p.angle = Math.PI - p.angle;
+            if (p.y < 60 || p.y > WORLD_H - 45) p.angle = -p.angle;
+            continue;
+          }
+
+          if (s.creatures.length <= 5) {
+            p.cooldown = 2.0;
+            continue;
+          }
+
+          let target = null;
+          let bestScore = Infinity;
+          for (const c of s.creatures) {
+            const d = Math.hypot(c.x - p.x, c.y - p.y);
+            // Slightly prefer closer & slower targets
+            const score = d * (0.7 + 0.5 * c.speed);
+            if (score < bestScore) { bestScore = score; target = c; }
+          }
+
+          if (target) {
+            p.angle = Math.atan2(target.y - p.y, target.x - p.x);
+            p.x += Math.cos(p.angle) * predSpeed * dt;
+            p.y += Math.sin(p.angle) * predSpeed * dt;
+
+            const catchDist = 18 + (10 + 11 * target.size);
+            if (Math.hypot(target.x - p.x, target.y - p.y) < catchDist) {
+              const idx = s.creatures.indexOf(target);
+              if (idx !== -1) {
+                s.effects.push({ type: 'catch', x: target.x, y: target.y, color: '#ef4444', life: 0.65, maxLife: 0.65 });
+                s.creatures.splice(idx, 1);
+                p.cooldown = s.predators === 2 ? 1.15 : 2.1;
+              }
+            }
+          }
+        }
+
+        s.effects = s.effects.filter(e => { e.life -= dt; return e.life > 0; });
+
+        if (s.creatures.length === 0) {
+          s.extinct = true;
+        }
+        recordHistoryC(s);
+      }
+
+      function renderScenarioC(s, ctx, w, h) {
+        const sx = w / WORLD_W;
+        const sy = h / WORLD_H;
+        const sc = Math.min(sx, sy);
+
+        // Biome background
+        if (s.frost) {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, '#0a1930');
+          g.addColorStop(1, '#102846');
+          ctx.fillStyle = g;
+        } else if (s.foodLevel === 'famine') {
+          ctx.fillStyle = '#1c1712';
+        } else {
+          ctx.fillStyle = '#0c1b18';
+        }
+        ctx.fillRect(0, 0, w, h);
+
+        // Frost border & snowflakes
+        if (s.frost) {
+          ctx.strokeStyle = 'rgba(125, 211, 252, 0.45)';
+          ctx.lineWidth = 10 * sc;
+          ctx.strokeRect(5 * sc, 5 * sc, w - 10 * sc, h - 10 * sc);
+
+          ctx.fillStyle = 'rgba(224, 242, 254, 0.55)';
+          for (const fl of s.snowflakes) {
+            ctx.beginPath();
+            ctx.arc(fl.x * sx, fl.y * sy, fl.r * sc, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Food pellets
+        for (const f of s.foods) {
+          const fx = f.x * sx;
+          const fy = f.y * sy;
+          ctx.beginPath();
+          ctx.arc(fx, fy, 11 * sc, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(74, 222, 128, 0.25)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(fx, fy, 7.5 * sc, 0, Math.PI * 2);
+          ctx.fillStyle = '#4ade80';
+          ctx.fill();
+          ctx.lineWidth = 1.5 * sc;
+          ctx.strokeStyle = '#bbf7d0';
+          ctx.stroke();
+        }
+
+        // Creatures
+        for (const c of s.creatures) {
+          const x = c.x * sx;
+          const y = c.y * sy;
+          const r = (10 + 11 * c.size) * sc;
+          const col = speedToColor(c.speed);
+
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(c.angle);
+
+          // Cold stress frost halo if small during Frost
+          if (s.frost && c.size < 0.95) {
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 1.38, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(125, 211, 252, 0.75)';
+            ctx.lineWidth = 3 * sc;
+            ctx.stroke();
+          }
+
+          // Fin/legs length visually matches speed
+          const legLen = r * (0.38 + 0.38 * c.speed);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = Math.max(2.5, 3.2 * sc);
+          ctx.lineCap = 'round';
+          for (const side of [-1, 1]) {
+            const kick = Math.sin(c.legPhase + (side > 0 ? 0 : Math.PI)) * 0.45;
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.2, side * r * 0.72);
+            ctx.lineTo(-r * 0.2 + Math.sin(kick) * legLen * 0.6, side * (r * 0.72 + legLen));
+            ctx.stroke();
+          }
+
+          // Sleek tail proportional to speed
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.85, 0);
+          ctx.lineTo(-r * (1.1 + 0.4 * c.speed), Math.sin(c.legPhase) * 4 * sc);
+          ctx.stroke();
+
+          // Main body (size = actual radius)
+          ctx.beginPath();
+          ctx.arc(0, 0, r, 0, Math.PI * 2);
+          ctx.fillStyle = col;
+          ctx.fill();
+          ctx.lineWidth = Math.max(2.5, 3 * sc);
+          ctx.strokeStyle = c.energy < 22 ? '#ef4444' : '#0f172a';
+          ctx.stroke();
+
+          // Crisp eyes
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.arc(r * 0.45, -r * 0.3, Math.max(2.5, r * 0.17), 0, Math.PI * 2);
+          ctx.arc(r * 0.45, r * 0.3, Math.max(2.5, r * 0.17), 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        // Predators
+        const activePreds = s.predators === 0 ? [] : s.predatorUnits.slice(0, s.predators);
+        for (const p of activePreds) {
+          const px = p.x * sx;
+          const py = p.y * sy;
+          const pr = 26 * sc;
+
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(p.angle);
+          ctx.fillStyle = p.cooldown > 0 ? 'rgba(239, 68, 68, 0.45)' : '#ef4444';
+          ctx.strokeStyle = '#fecaca';
+          ctx.lineWidth = 3 * sc;
+
+          ctx.beginPath();
+          ctx.moveTo(pr * 1.25, 0);
+          ctx.lineTo(-pr * 0.85, -pr * 0.85);
+          ctx.lineTo(-pr * 0.45, 0);
+          ctx.lineTo(-pr * 0.85, pr * 0.85);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#fef08a';
+          ctx.beginPath();
+          ctx.arc(pr * 0.35, -pr * 0.22, 4 * sc, 0, Math.PI * 2);
+          ctx.arc(pr * 0.35, pr * 0.22, 4 * sc, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        renderEffects(s.effects, ctx, sx, sy, sc);
+      }
+
+      // ==========================================================
+      // SHARED CANVAS DRAWING HELPERS
+      // ==========================================================
+      function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+
+      function capsulePath(ctx, x, y, len, diameter) {
+        const r = diameter / 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r, Math.PI * 0.5, Math.PI * 1.5);
+        ctx.arc(x + len, y, r, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.closePath();
+      }
+
+      function renderEffects(effects, ctx, sx, sy, sc) {
+        for (const e of effects) {
+          const alpha = clamp(e.life / e.maxLife, 0, 1);
+          const x = e.x * sx;
+          const y = e.y * sy;
+          if (e.type === 'catch') {
+            ctx.save();
+            ctx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
+            ctx.lineWidth = 5 * sc;
+            const d = (14 + (1 - alpha) * 16) * sc;
+            ctx.beginPath();
+            ctx.moveTo(x - d * 0.6, y - d * 0.6); ctx.lineTo(x + d * 0.6, y + d * 0.6);
+            ctx.moveTo(x + d * 0.6, y - d * 0.6); ctx.lineTo(x - d * 0.6, y + d * 0.6);
+            ctx.stroke();
+            ctx.restore();
+          } else if (e.type === 'lysis') {
+            ctx.save();
+            ctx.strokeStyle = e.color;
+            ctx.globalAlpha = alpha;
+            ctx.lineWidth = 3.5 * sc;
+            const r = (12 + (1 - alpha) * 28) * sc;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          } else if (e.type === 'badge') {
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, alpha * 1.4);
+            ctx.font = `900 ${Math.round(18 * sc)}px Inter, Segoe UI, sans-serif`;
+            const tw = ctx.measureText(e.text).width;
+            ctx.fillStyle = 'rgba(7, 11, 20, 0.88)';
+            roundRect(ctx, x - tw / 2 - 10 * sc, y - 16 * sc, tw + 20 * sc, 28 * sc, 9 * sc);
+            ctx.fill();
+            ctx.strokeStyle = e.color;
+            ctx.lineWidth = 2 * sc;
+            ctx.stroke();
+            ctx.fillStyle = e.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(e.text, x, y - 2 * sc);
+            ctx.restore();
+          }
+        }
+      }
+
+      // ==========================================================
+      // EVOLUTION GRAPH RENDERER (8-METER THICK LINES)
+      // ==========================================================
+      function renderGraph(scenarioKey, s, canvas) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (w <= 0 || h <= 0) return;
+
+        ctx.clearRect(0, 0, w, h);
+        const padL = 48;
+        const padR = 22;
+        const padT = 22;
+        const padB = 30;
+        const gw = Math.max(40, w - padL - padR);
+        const gh = Math.max(40, h - padT - padB);
+
+        const hist = s.history;
+        if (!hist.length) return;
+
+        const minGen = hist[0].gen;
+        const maxGen = Math.max(minGen + 2, hist[hist.length - 1].gen);
+
+        const toX = g => padL + ((g - minGen) / (maxGen - minGen)) * gw;
+        const toY = (val, minV, maxV) => padT + gh - ((val - minV) / (maxV - minV)) * gh;
+
+        // Horizontal reference lines
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+        ctx.lineWidth = 2;
+        ctx.font = '800 14px Inter, Segoe UI, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+
+        const yTicks = scenarioKey === 'C' ? [0.6, 1.0, 1.5, 2.0] : [0, 50, 100];
+        const minY = scenarioKey === 'C' ? 0.5 : 0;
+        const maxY = scenarioKey === 'C' ? 2.05 : 100;
+
+        for (const tv of yTicks) {
+          const py = toY(tv, minY, maxY);
+          ctx.beginPath();
+          ctx.moveTo(padL, py);
+          ctx.lineTo(padL + gw, py);
+          ctx.stroke();
+          ctx.fillText(scenarioKey === 'C' ? `${tv.toFixed(1)}×` : `${tv}%`, padL - 8, py);
+        }
+
+        // Event markers on timeline
+        for (const ev of s.events) {
+          if (ev.gen < minGen || ev.gen > maxGen) continue;
+          const ex = toX(ev.gen);
+          ctx.save();
+          ctx.setLineDash([6, 6]);
+          ctx.strokeStyle = ev.color || '#facc15';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(ex, padT);
+          ctx.lineTo(ex, padT + gh);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = '800 13px Inter, Segoe UI, sans-serif';
+          ctx.fillStyle = ev.color || '#fde047';
+          ctx.textAlign = ex > padL + gw * 0.72 ? 'right' : 'left';
+          ctx.fillText(ev.label, ex + (ex > padL + gw * 0.72 ? -5 : 5), padT + 10);
+          ctx.restore();
+        }
+
+        const drawSeries = (getter, color) => {
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 5.5;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          hist.forEach((pt, idx) => {
+            const x = toX(pt.gen);
+            const y = toY(getter(pt), minY, maxY);
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          ctx.stroke();
+
+          // Big dot on latest value
+          const last = hist[hist.length - 1];
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(toX(last.gen), toY(getter(last), minY, maxY), 6.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        };
+
+        if (scenarioKey === 'A') {
+          drawSeries(p => p.L, '#f8fafc');
+          drawSeries(p => p.G, '#22c55e');
+          drawSeries(p => p.D, '#64748b');
+        } else if (scenarioKey === 'B') {
+          drawSeries(p => p.R0, '#22d3ee');
+          drawSeries(p => p.R1, '#fbbf24');
+          drawSeries(p => p.R2, '#fb7185');
+        } else {
+          drawSeries(p => p.size, '#a78bfa');
+          drawSeries(p => p.speed, '#fb923c');
+        }
+
+        // X-axis generation labels
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '800 14px Inter, Segoe UI, sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Пок. ${minGen.toFixed(0)}`, padL, padT + gh + 8);
+        ctx.textAlign = 'right';
+        ctx.fillText(`Пок. ${hist[hist.length - 1].gen.toFixed(1)}`, padL + gw, padT + gh + 8);
+      }
+
+      // ==========================================================
+      // STATE MANAGEMENT & UI BINDING
+      // ==========================================================
+      const scenarios = {
+        A: createScenarioA(),
+        B: createScenarioB(),
+        C: createScenarioC()
+      };
+
+      const arenaCanvas = document.getElementById('arenaCanvas');
+      const graphCanvas = document.getElementById('graphCanvas');
+      const arenaCtx = arenaCanvas.getContext('2d');
+
+      function syncCanvasSizes() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        for (const c of [arenaCanvas, graphCanvas]) {
+          const rect = c.parentElement.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            c.width = Math.floor(rect.width * dpr);
+            c.height = Math.floor(rect.height * dpr);
+            const ctx = c.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          }
+        }
+      }
+      new ResizeObserver(syncCanvasSizes).observe(document.querySelector('.stage'));
+      window.addEventListener('resize', syncCanvasSizes);
+
+      function pushEvent(s, label, color) {
+        const lastHist = s.history[s.history.length - 1];
+        const g = lastHist ? lastHist.gen : 1;
+        const prevEv = s.events[s.events.length - 1];
+        if (prevEv && Math.abs(prevEv.gen - g) < 0.35) {
+          s.events[s.events.length - 1] = { gen: g, label, color };
+        } else {
+          s.events.push({ gen: g, label, color });
+        }
+        if (s.events.length > 14) s.events.shift();
+      }
+
+      // Dynamic HTML Builders for Controls & HUD
+      function buildScenarioControls() {
+        const key = appState.activeScenario;
+        const s = scenarios[key];
+        const container = document.getElementById('scenarioControls');
+        const insight = document.getElementById('insightLine');
+
+        if (key === 'A') {
+          container.innerHTML = `
+            <div class="control-group">
+              <span class="group-label">Среда:</span>
+              <button class="opt-btn ${s.env === 'snow' ? 'active' : ''}" data-act="env" data-val="snow">❄️ Снег</button>
+              <button class="opt-btn ${s.env === 'meadow' ? 'active-good' : ''}" data-act="env" data-val="meadow">🌿 Луг</button>
+              <button class="opt-btn ${s.env === 'soot' ? 'active-warn' : ''}" data-act="env" data-val="soot">🌑 Копоть</button>
+            </div>
+            <div class="control-group">
+              <span class="group-label">Хищники:</span>
+              <button class="opt-btn ${s.predators === 0 ? 'active' : ''}" data-act="pred" data-val="0">Нет</button>
+              <button class="opt-btn ${s.predators === 1 ? 'active-warn' : ''}" data-act="pred" data-val="1">🦉 Норма</button>
+              <button class="opt-btn ${s.predators === 2 ? 'active-danger' : ''}" data-act="pred" data-val="2">🦉🦉 Много</button>
+            </div>
+            <div class="control-group">
+              <span class="group-label">Мутации:</span>
+              <button class="opt-btn ${s.mutationRate === 0.02 ? 'active' : ''}" data-act="mutA" data-val="0.02">Обычные (2%)</button>
+              <button class="opt-btn ${s.mutationRate === 0.08 ? 'active-warn' : ''}" data-act="mutA" data-val="0.08">Частые (8%)</button>
+            </div>
+          `;
+          insight.innerHTML = s.predators === 0
+            ? '🕊️ <b>Без хищников:</b> давление отбора снято — выживают все окрасы, частоты колеблются случайно (дрейф генов).'
+            : `🦉 <b>Фактор отбора:</b> хищники замечают тех, кто сильнее контрастирует с фоном «${ENVS_A[s.env].name}». Рецессивные аллели сохраняются в гетерозиготах.`;
+        } else if (key === 'B') {
+          container.innerHTML = `
+            <div class="control-group">
+              <span class="group-label">Антибиотик:</span>
+              <button class="opt-btn ${s.antibiotic === 0 ? 'active-good' : ''}" data-act="ab" data-val="0">Нет</button>
+              <button class="opt-btn ${s.antibiotic === 1 ? 'active-warn' : ''}" data-act="ab" data-val="1">🟡 Низкая доза</button>
+              <button class="opt-btn ${s.antibiotic === 2 ? 'active-danger' : ''}" data-act="ab" data-val="2">🔴 Высокая доза</button>
+            </div>
+            <div class="control-group">
+              <span class="group-label">Питательная среда:</span>
+              <button class="opt-btn ${s.nutrients === 1 ? 'active' : ''}" data-act="nut" data-val="1">Обычная</button>
+              <button class="opt-btn ${s.nutrients === 1.5 ? 'active-good' : ''}" data-act="nut" data-val="1.5">Богатая</button>
+            </div>
+          `;
+          if (s.antibiotic === 0) {
+            insight.innerHTML = '⚖️ <b>Без антибиотика:</b> защита стоит энергии! Обычные бактерии <b>R⁰</b> делятся быстрее всех и вытесняют устойчивых <b>R¹/R²</b>.';
+          } else if (s.antibiotic === 1) {
+            insight.innerHTML = '⚠️ <b>Низкая доза:</b> <b>R⁰</b> гибнут, но <b>R¹</b> выживают, размножаются и успевают накопить мутацию до суперустойчивости <b>R²</b>!';
+          } else {
+            insight.innerHTML = '💉 <b>Высокая доза:</b> подавляет и <b>R⁰</b>, и <b>R¹</b>. Если в популяции ещё нет <b>R²</b>, инфекция может погибнуть полностью.';
+          }
+        } else {
+          container.innerHTML = `
+            <div class="control-group">
+              <span class="group-label">Еда:</span>
+              <button class="opt-btn ${s.foodLevel === 'famine' ? 'active-danger' : ''}" data-act="food" data-val="famine">🥀 Голод</button>
+              <button class="opt-btn ${s.foodLevel === 'normal' ? 'active' : ''}" data-act="food" data-val="normal">🌱 Норма</button>
+              <button class="opt-btn ${s.foodLevel === 'abundant' ? 'active-good' : ''}" data-act="food" data-val="abundant">🌿 Изобилие</button>
+            </div>
+            <div class="control-group">
+              <span class="group-label">Климат:</span>
+              <button class="opt-btn ${!s.frost ? 'active-good' : ''}" data-act="frost" data-val="0">☀️ Тепло</button>
+              <button class="opt-btn ${s.frost ? 'active' : ''}" data-act="frost" data-val="1">❄️ Мороз (Бергман)</button>
+            </div>
+            <div class="control-group">
+              <span class="group-label">Хищники:</span>
+              <button class="opt-btn ${s.predators === 0 ? 'active' : ''}" data-act="predC" data-val="0">Нет</button>
+              <button class="opt-btn ${s.predators === 1 ? 'active-warn' : ''}" data-act="predC" data-val="1">🦊 1 Хищник</button>
+              <button class="opt-btn ${s.predators === 2 ? 'active-danger' : ''}" data-act="predC" data-val="2">🐆 2 Быстрых</button>
+            </div>
+          `;
+          const notes = [];
+          if (s.foodLevel === 'famine') notes.push('🥀 <b>Голод</b> отбирает мелких (меньше затрат на основной обмен)');
+          if (s.frost) notes.push('❄️ <b>Мороз</b> отбирает крупных (меньше относительная потеря тепла — правило Бергмана)');
+          if (s.predators > 0) notes.push('🦊 <b>Хищники</b> догоняют медленных — выживают быстрые (оранжевые), но быстрый бег жжёт энергию');
+          insight.innerHTML = notes.length ? notes.join(' • ') + '.' : '⚖️ <b>Мягкая среда:</b> признаки держатся в золотой середине около 1.0×.';
+        }
+
+        // Bind clicks
+        container.querySelectorAll('.opt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const act = btn.dataset.act;
+            const val = btn.dataset.val;
+            if (act === 'env') {
+              s.env = val;
+              pushEvent(s, ENVS_A[val].icon + ' ' + ENVS_A[val].name.split(' ')[0], '#38bdf8');
+            } else if (act === 'pred') {
+              s.predators = Number(val);
+              pushEvent(s, val === '0' ? 'Без хищн.' : '🦉 Хищники', '#f87171');
+            } else if (act === 'mutA') {
+              s.mutationRate = Number(val);
+            } else if (act === 'ab') {
+              s.antibiotic = Number(val);
+              const lbl = val === '0' ? 'Отмена АБ' : (val === '1' ? '🟡 АБ Низк.' : '🔴 АБ Выс.');
+              pushEvent(s, lbl, val === '2' ? '#f87171' : '#fbbf24');
+            } else if (act === 'nut') {
+              s.nutrients = Number(val);
+            } else if (act === 'food') {
+              s.foodLevel = val;
+              pushEvent(s, val === 'famine' ? '🥀 Голод' : (val === 'abundant' ? '🌿 Изоб.' : '🌱 Норма'), val === 'famine' ? '#f87171' : '#4ade80');
+            } else if (act === 'frost') {
+              s.frost = val === '1';
+              pushEvent(s, s.frost ? '❄️ Мороз' : '☀️ Тепло', '#7dd3fc');
+            } else if (act === 'predC') {
+              s.predators = Number(val);
+              pushEvent(s, val === '0' ? 'Без хищн.' : '🦊 Хищник', '#fb923c');
+            }
+            buildScenarioControls();
+            updateHUD();
+          });
+        });
+      }
+
+      function updateHUD() {
+        const key = appState.activeScenario;
+        const s = scenarios[key];
+        const statusPill = document.getElementById('arenaStatusPill');
+        const breakdown = document.getElementById('hudBreakdown');
+        const kpiGen = document.getElementById('kpiGen');
+        const kpiPop = document.getElementById('kpiPop');
+        const kpiCap = document.getElementById('kpiCap');
+        const graphTitle = document.getElementById('graphTitle');
+        const graphRange = document.getElementById('graphRange');
+        const extinctEl = document.getElementById('extinctOverlay');
+        const extinctDesc = document.getElementById('extinctDesc');
+
+        if (key === 'A') {
+          const st = computeStatsA(s);
+          kpiGen.textContent = st.avgGen.toFixed(1);
+          kpiPop.textContent = st.n;
+          kpiCap.textContent = `ёмкость среды: ${s.K}`;
+          statusPill.textContent = `${ENVS_A[s.env].icon} ${ENVS_A[s.env].name} • ${s.predators === 0 ? 'Без хищников' : (s.predators === 1 ? '🦉 Хищники: норма' : '🦉🦉 Много хищников')}`;
+
+          breakdown.innerHTML = `
+            <div class="bar-row">
+              <div class="bar-head"><span>⚪ Светлые (LL)</span><span class="bar-pct">${Math.round(st.pctL)}%</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${st.pctL}%; background:#f8fafc;"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-head"><span>🟢 Зелёные (GG/GL)</span><span class="bar-pct" style="color:#4ade80;">${Math.round(st.pctG)}%</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${st.pctG}%; background:#22c55e;"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-head"><span>⚫ Тёмные (D_)</span><span class="bar-pct" style="color:#94a3b8;">${Math.round(st.pctD)}%</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${st.pctD}%; background:#64748b;"></div></div>
+            </div>
+            <div class="allele-row">
+              <span>Аллели:</span>
+              <span style="color:#f8fafc;">L: ${Math.round(st.freqL)}%</span>
+              <span style="color:#4ade80;">G: ${Math.round(st.freqG)}%</span>
+              <span style="color:#94a3b8;">D: ${Math.round(st.freqD)}%</span>
+            </div>
+          `;
+          graphTitle.textContent = 'Доля окрасов (%) по поколениям';
+          extinctDesc.textContent = 'Хищники уничтожили популяцию быстрее, чем она успела восстановиться. Нажмите «Заселить заново».';
+        } else if (key === 'B') {
+          const st = computeStatsB(s);
+          kpiGen.textContent = st.avgGen.toFixed(1);
+          kpiPop.textContent = st.n;
+          kpiCap.textContent = `ёмкость чашки: ${s.K}`;
+          const abText = s.antibiotic === 0 ? 'Без антибиотика' : (s.antibiotic === 1 ? '🟡 Низкая доза АБ' : '🔴 Высокая доза АБ');
+          statusPill.textContent = `🧫 Чашка Петри • ${abText}`;
+
+          breakdown.innerHTML = `
+            <div class="bar-row">
+              <div class="bar-head"><span style="color:#22d3ee;">R⁰ Чувствительные</span><span class="bar-pct" style="color:#22d3ee;">${Math.round(st.pct0)}%</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${st.pct0}%; background:#22d3ee;"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-head"><span style="color:#fbbf24;">R¹ Устойчивые (щит)</span><span class="bar-pct" style="color:#fbbf24;">${Math.round(st.pct1)}%</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${st.pct1}%; background:#fbbf24;"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-head"><span style="color:#fb7185;">R² Суперустойчивые</span><span class="bar-pct" style="color:#fb7185;">${Math.round(st.pct2)}%</span></div>
+              <div class="bar-track"><div class="bar-fill" style="width:${st.pct2}%; background:#fb7185;"></div></div>
+            </div>
+            <div class="allele-row">
+              <span style="color:#94a3b8;">Скорость деления:</span>
+              <span style="color:#22d3ee;">R⁰ 100%</span>
+              <span style="color:#fbbf24;">R¹ 82%</span>
+              <span style="color:#fb7185;">R² 66%</span>
+            </div>
+          `;
+          graphTitle.textContent = 'Доля штаммов (%) по поколениям';
+          extinctDesc.textContent = 'Высокая доза антибиотика полностью уничтожила бактериальную культуру до появления суперустойчивого мутанта R²!';
+        } else {
+          const st = computeStatsC(s);
+          kpiGen.textContent = st.avgGen.toFixed(1);
+          kpiPop.textContent = st.n;
+          kpiCap.textContent = `ёмкость среды: ${s.K}`;
+          const fTxt = s.foodLevel === 'famine' ? '🥀 Голод' : (s.foodLevel === 'abundant' ? '🌿 Изобилие' : '🌱 Еда: норма');
+          const cTxt = s.frost ? '❄️ Мороз' : '☀️ Тепло';
+          const pTxt = s.predators === 0 ? 'Без хищников' : (s.predators === 1 ? '🦊 1 Хищник' : '🐆 2 Быстрых');
+          statusPill.textContent = `${fTxt} • ${cTxt} • ${pTxt}`;
+
+          const fmtDelta = (val) => {
+            const pct = Math.round((val - 1) * 100);
+            if (pct > 3) return `<span style="color:#4ade80;">▲ +${pct}% к норме</span>`;
+            if (pct < -3) return `<span style="color:#fbbf24;">▼ ${pct}% к норме</span>`;
+            return `<span style="color:#94a3b8;">● около нормы</span>`;
+          };
+
+          breakdown.innerHTML = `
+            <div class="trait-cards">
+              <div class="trait-box">
+                <div class="trait-title">🟣 Средний размер</div>
+                <div class="trait-val" style="color:#c4b5fd;">${st.avgSize.toFixed(2)}×</div>
+                <div class="trait-delta">${fmtDelta(st.avgSize)}</div>
+              </div>
+              <div class="trait-box">
+                <div class="trait-title">🟠 Средняя скорость</div>
+                <div class="trait-val" style="color:${speedToColor(st.avgSpeed)};">${st.avgSpeed.toFixed(2)}×</div>
+                <div class="trait-delta">${fmtDelta(st.avgSpeed)}</div>
+              </div>
+            </div>
+            <div class="allele-row">
+              <span style="color:#60a5fa;">🔵 Медленный</span>
+              <span style="color:#2dd4bf;">🟢 Средний</span>
+              <span style="color:#fb923c;">🟠 Быстрый</span>
+            </div>
+          `;
+          graphTitle.textContent = 'Эволюция признаков (норма = 1.0×)';
+          extinctDesc.textContent = 'Суровые условия среды привели к полному вымиранию популяции (слишком высокий расход энергии или хищники).';
+        }
+
+        const hist = s.history;
+        if (hist.length) {
+          graphRange.textContent = `Пок. ${hist[0].gen.toFixed(0)} → ${hist[hist.length - 1].gen.toFixed(1)}`;
+        }
+        extinctEl.classList.toggle('visible', Boolean(s.extinct));
+      }
+
+      // Biology Help Modal Content
+      const BIO_NOTES = {
+        A: {
+          title: '🦋 Сценарий 1: Камуфляж и индустриальный меланизм',
+          html: `
+            <h3>Как это работает по биологии</h3>
+            <ul>
+              <li><b>Наследственность:</b> окраска определяется одним геном с тремя аллелями (<b>D</b> — тёмный, <b>G</b> — зелёный, <b>L</b> — светлый) и доминированием <b>D &gt; G &gt; L</b>.</li>
+              <li><b>Движущий отбор:</b> хищники видят и съедают тех, чей цвет сильнее контрастирует с фоном. Выжившие передают свои аллели потомкам.</li>
+              <li><b>Скрытый резерв изменчивости:</b> обратите внимание на счётчик аллелей! Даже когда светлые жуки (<i>LL</i>) почти исчезают внешне, аллель <b>L</b> годами сохраняется в гетерозиготах (<i>GL</i>, <i>DL</i>) и быстро возвращается при смене климата на снежный.</li>
+            </ul>
+            <h3>Вопросы для обсуждения с классом</h3>
+            <ul>
+              <li>Почему после потемнения фона (копоти) светлые жуки не исчезают мгновенно в первом же поколении?</li>
+              <li>Что происходит с разнообразием окрасов, если полностью убрать хищников?</li>
+            </ul>
+          `
+        },
+        B: {
+          title: '🦠 Сценарий 2: Антибиотикорезистентность',
+          html: `
+            <h3>Как это работает по биологии</h3>
+            <ul>
+              <li><b>Случайность мутаций:</b> мутации устойчивости (<i>R⁰ → R¹ → R²</i>) происходят <b>случайно</b> при делении клеток, а не «появляются по заказу от антибиотика». Антибиотик лишь выступает фильтром отбора.</li>
+              <li><b>Плата за признак:</b> синтез защитной клеточной стенки или ферментов требует ресурсов. Поэтому без антибиотика обычные бактерии <b>R⁰</b> делятся быстрее (100%) и вытесняют устойчивых <b>R¹</b> (82%) и <b>R²</b> (66%).</li>
+              <li><b>Почему опасны низкие дозы:</b> слабая концентрация убивает <i>R⁰</i>, освобождая место устойчивым <i>R¹</i>, которые успевают размножиться и дать суперустойчивую мутацию <i>R²</i>.</li>
+            </ul>
+            <h3>Вопросы для обсуждения с классом</h3>
+            <ul>
+              <li>Почему врачи запрещают бросать курс антибиотиков на середине, как только стало легче?</li>
+              <li>Почему при отмене антибиотика доля устойчивых бактерий со временем снова падает?</li>
+            </ul>
+          `
+        },
+        C: {
+          title: '⚖️ Сценарий 3: Признаки и эволюционные компромиссы',
+          html: `
+            <h3>Как это работает по биологии</h3>
+            <ul>
+              <li><b>Энергетический баланс и голод:</b> крупное тело и высокая скорость требуют больше энергии на основной обмен и движение. В <b>Голод</b> преимущество получают мелкие особи.</li>
+              <li><b>Правило Бергмана (Мороз):</b> теплопотери идут через поверхность тела, а тепло вырабатывается объёмом. При похолодании у мелких особей слишком большая относительная площадь поверхности — они замерзают, поэтому средний размер растёт.</li>
+              <li><b>Эволюционный компромисс (Trade-off):</b> не бывает «абсолютно идеального» организма — признак полезен только в конкретной среде.</li>
+            </ul>
+            <h3>Вопросы для обсуждения с классом</h3>
+            <ul>
+              <li>Что произойдёт со средним размером, если одновременно включить и <b>Мороз</b>, и <b>Голод</b>?</li>
+              <li>Почему при наличии хищников все особи не становятся максимально быстрыми, если не хватает еды?</li>
+            </ul>
+          `
+        }
+      };
+
+      function openBioModal() {
+        const note = BIO_NOTES[appState.activeScenario];
+        document.getElementById('bioModalTitle').textContent = note.title;
+        document.getElementById('bioModalBody').innerHTML = note.html;
+        document.getElementById('bioModal').classList.add('open');
+      }
+
+      // Event Bindings
+      function switchScenario(key) {
+        appState.activeScenario = key;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.scenario === key));
+        buildScenarioControls();
+        updateHUD();
+        renderGraph(key, scenarios[key], graphCanvas);
+      }
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchScenario(btn.dataset.scenario));
+      });
+
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      const pauseBanner = document.getElementById('pauseBanner');
+      function togglePause(forceVal = null) {
+        appState.paused = forceVal !== null ? forceVal : !appState.paused;
+        playPauseBtn.textContent = appState.paused ? '▶ Старт' : '⏸ Пауза';
+        playPauseBtn.classList.toggle('play-active', !appState.paused);
+        playPauseBtn.classList.toggle('paused-state', appState.paused);
+        pauseBanner.classList.toggle('visible', appState.paused);
+      }
+      playPauseBtn.addEventListener('click', () => togglePause());
+
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          appState.speed = Number(btn.dataset.speed);
+          document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b === btn));
+        });
+      });
+
+      function resetCurrentScenario() {
+        const key = appState.activeScenario;
+        if (key === 'A') initScenarioA(scenarios.A);
+        else if (key === 'B') initScenarioB(scenarios.B);
+        else initScenarioC(scenarios.C);
+        updateHUD();
+        renderGraph(key, scenarios[key], graphCanvas);
+      }
+
+      document.getElementById('resetBtn').addEventListener('click', resetCurrentScenario);
+      document.getElementById('extinctResetBtn').addEventListener('click', resetCurrentScenario);
+
+      document.getElementById('bioBtn').addEventListener('click', openBioModal);
+      document.getElementById('closeModalBtn').addEventListener('click', () => {
+        document.getElementById('bioModal').classList.remove('open');
+      });
+      document.getElementById('bioModal').addEventListener('click', (e) => {
+        if (e.target.id === 'bioModal') document.getElementById('bioModal').classList.remove('open');
+      });
+
+      const appRoot = document.getElementById('appRoot');
+      const hideUiBtn = document.getElementById('hideUiBtn');
+      function toggleHideUi() {
+        appState.uiHidden = !appState.uiHidden;
+        appRoot.classList.toggle('compact-controls', appState.uiHidden);
+        hideUiBtn.textContent = appState.uiHidden ? '👁 Показать панель' : '👁 Панель';
+        setTimeout(syncCanvasSizes, 30);
+      }
+      hideUiBtn.addEventListener('click', toggleHideUi);
+
+      document.getElementById('fsBtn').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        } else {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      });
+
+      // Keyboard Shortcuts for classroom remote/teacher
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.getElementById('bioModal').classList.remove('open');
+          return;
+        }
+        if (document.getElementById('bioModal').classList.contains('open')) return;
+        if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+        else if (e.key === '1') switchScenario('A');
+        else if (e.key === '2') switchScenario('B');
+        else if (e.key === '3') switchScenario('C');
+        else if (e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'к') resetCurrentScenario();
+        else if (e.key.toLowerCase() === 'h' || e.key.toLowerCase() === 'р') toggleHideUi();
+      });
+
+      // Main Simulation & Render Loop
+      let lastTime = performance.now();
+      let hudTick = 0;
+
+      function loop(now) {
+        const rawDt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+
+        const key = appState.activeScenario;
+        const s = scenarios[key];
+
+        if (!appState.paused) {
+          // Sub-step high speeds cleanly so physics stays accurate
+          const totalDt = rawDt * appState.speed;
+          const steps = appState.speed > 1 ? Math.ceil(appState.speed) : 1;
+          const subDt = totalDt / steps;
+          for (let i = 0; i < steps; i++) {
+            if (key === 'A') stepScenarioA(s, subDt);
+            else if (key === 'B') stepScenarioB(s, subDt);
+            else stepScenarioC(s, subDt);
+          }
+        }
+
+        const cw = arenaCanvas.clientWidth;
+        const ch = arenaCanvas.clientHeight;
+        if (cw > 0 && ch > 0) {
+          if (key === 'A') renderScenarioA(s, arenaCtx, cw, ch);
+          else if (key === 'B') renderScenarioB(s, arenaCtx, cw, ch);
+          else renderScenarioC(s, arenaCtx, cw, ch);
+        }
+
+        hudTick += rawDt;
+        if (hudTick >= 0.14) {
+          hudTick = 0;
+          updateHUD();
+          renderGraph(key, s, graphCanvas);
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      // Initialize
+      syncCanvasSizes();
+      buildScenarioControls();
+      updateHUD();
+      renderGraph('A', scenarios.A, graphCanvas);
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
